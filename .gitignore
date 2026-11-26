@@ -1,0 +1,14 @@
+# build output
+**/build/
+**/target/
+**/out/
+**/.dart_tool/
+**/.gradle/
+**/.kotlin/
+**/.idea/
+**/local.properties
+**/jniLibs/**/*.so
+*.apk
+*.aab
+*.class
+__pycache__/

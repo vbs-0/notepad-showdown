@@ -1,0 +1,19 @@
+[package]
+name = "tinynotepad"
+version = "0.1.0"
+edition = "2021"
+build = "build.rs"
+
+[lib]
+name = "notepad"
+crate-type = ["cdylib"]
+
+[dependencies]
+linked_list_allocator = "0.10"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

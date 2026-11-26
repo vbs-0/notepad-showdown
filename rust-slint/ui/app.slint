@@ -1,0 +1,436 @@
+// Notepad — a warm, paper-like notes app.
+// Everything here is hand-rolled on Slint primitives so the look is fully ours.
+
+import { ListView } from "std-widgets.slint";
+
+export struct NoteItem {
+    id: int,
+    title: string,
+    preview: string,
+    updated: string,
+}
+
+global Palette {
+    in-out property <color> bg: #F4F2ED;
+    in-out property <color> surface: #FFFFFF;
+    in-out property <color> surface-2: #FBFAF7;
+    in-out property <color> ink: #171614;
+    in-out property <color> ink-2: #6B675E;
+    in-out property <color> ink-3: #9C978C;
+    in-out property <color> line: #E6E1D6;
+    in-out property <color> accent: #C0562F;
+    in-out property <color> accent-press: #A5481F;
+    in-out property <color> accent-soft: #F6E7DF;
+    in-out property <color> danger: #A83A2C;
+    in-out property <color> shadow: #14000000;
+}
+
+component NoteCard inherits Rectangle {
+    in property <NoteItem> item;
+    callback opened();
+
+    height: 96px;
+    border-radius: 16px;
+    background: Palette.surface;
+    border-width: 1px;
+    border-color: Palette.line;
+    drop-shadow-blur: 16px;
+    drop-shadow-offset-y: 4px;
+    drop-shadow-color: Palette.shadow;
+
+    VerticalLayout {
+        padding-left: 18px;
+        padding-right: 46px;
+        padding-top: 15px;
+        padding-bottom: 15px;
+        spacing: 3px;
+        alignment: start;
+
+        Text {
+            text: root.item.title;
+            color: Palette.ink;
+            font-size: 16px;
+            font-weight: 600;
+            overflow: elide;
+            height: 21px;
+        }
+        Text {
+            text: root.item.preview;
+            color: Palette.ink-2;
+            font-size: 13px;
+            overflow: elide;
+            height: 18px;
+        }
+        Text {
+            text: root.item.updated;
+            color: Palette.ink-3;
+            font-size: 11px;
+            height: 15px;
+        }
+    }
+
+    Path {
+        x: parent.width - 30px;
+        y: (parent.height - 12px) / 2;
+        width: 8px;
+        height: 12px;
+        commands: "M 1 1 L 6 6 L 1 11";
+        stroke: Palette.ink-3;
+        stroke-width: 1.6px;
+        fill: transparent;
+    }
+
+    states [
+        pressed when touch.pressed: {
+            background: Palette.surface-2;
+        }
+    ]
+    animate background { duration: 120ms; }
+
+    touch := TouchArea {
+        clicked => { root.opened(); }
+    }
+}
+
+export component AppWindow inherits Window {
+    title: "Notepad";
+    background: Palette.bg;
+    preferred-width: 412px;
+    preferred-height: 760px;
+
+    in property <[NoteItem]> notes;
+    in property <string> count-label: "";
+    in property <string> status: "";
+
+    in-out property <int> screen: 0;
+    in-out property <string> query: "";
+    in-out property <string> draft-title: "";
+    in-out property <string> draft-body: "";
+
+    callback new-note();
+    callback open-note(int);
+    callback delete-note();
+    callback go-back();
+    callback search-changed();
+    callback edited();
+
+    // ---------------------------------------------------------------- list
+    if root.screen == 0 : Rectangle {
+        width: parent.width;
+        height: parent.height;
+        background: Palette.bg;
+
+        list-content := Rectangle {
+            x: root.safe-area-insets.left;
+            y: root.safe-area-insets.top;
+            width: parent.width - root.safe-area-insets.left - root.safe-area-insets.right;
+            height: parent.height - root.safe-area-insets.top - root.safe-area-insets.bottom;
+            background: transparent;
+
+            Text {
+                x: 24px;
+                y: 28px;
+                text: "Notes";
+                color: Palette.ink;
+                font-size: 34px;
+                font-weight: 700;
+                letter-spacing: -1px;
+            }
+
+            Text {
+                x: 24px;
+                y: 78px;
+                text: root.count-label;
+                color: Palette.ink-3;
+                font-size: 13px;
+            }
+
+            Rectangle {
+                x: parent.width - 76px;
+                y: 28px;
+                width: 52px;
+                height: 52px;
+                border-radius: 26px;
+                background: Palette.accent;
+                drop-shadow-blur: 20px;
+                drop-shadow-offset-y: 8px;
+                drop-shadow-color: #40C0562F;
+
+                Text {
+                    text: "+";
+                    color: #FFFFFF;
+                    font-size: 30px;
+                    font-weight: 300;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    y: -3px;
+                }
+
+                states [
+                    pressed when add-touch.pressed: {
+                        background: Palette.accent-press;
+                    }
+                ]
+                animate background { duration: 120ms; }
+
+                add-touch := TouchArea {
+                    clicked => { root.new-note(); }
+                }
+            }
+
+            Rectangle {
+                x: 22px;
+                y: 108px;
+                width: parent.width - 44px;
+                height: 46px;
+                border-radius: 14px;
+                background: Palette.surface;
+                border-width: 1px;
+                border-color: Palette.line;
+
+                Text {
+                    x: 16px;
+                    y: 0;
+                    height: parent.height;
+                    vertical-alignment: center;
+                    horizontal-alignment: left;
+                    text: "Search notes";
+                    color: Palette.ink-3;
+                    font-size: 14px;
+                    visible: search-input.text == "";
+                }
+
+                search-input := TextInput {
+                    x: 16px;
+                    y: 13px;
+                    width: parent.width - 32px;
+                    height: 20px;
+                    color: Palette.ink;
+                    font-size: 14px;
+                    single-line: true;
+                    text <=> root.query;
+                    edited => { root.search-changed(); }
+                }
+            }
+
+            if root.notes.length == 0 : Rectangle {
+                y: 166px;
+                width: parent.width;
+                height: parent.height - 166px;
+
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 10px;
+
+                    HorizontalLayout {
+                        alignment: center;
+
+                        Rectangle {
+                            width: 78px;
+                            height: 78px;
+                            border-radius: 26px;
+                            background: Palette.accent-soft;
+
+                            Rectangle { x: 23px; y: 27px; width: 32px; height: 2px; border-radius: 1px; background: Palette.accent; }
+                            Rectangle { x: 23px; y: 37px; width: 22px; height: 2px; border-radius: 1px; background: Palette.accent; }
+                            Rectangle { x: 23px; y: 47px; width: 27px; height: 2px; border-radius: 1px; background: Palette.accent; }
+                        }
+                    }
+
+                    Text {
+                        text: root.query == "" ? "No notes yet" : "Nothing found";
+                        color: Palette.ink;
+                        font-size: 17px;
+                        font-weight: 600;
+                        horizontal-alignment: center;
+                    }
+
+                    Text {
+                        text: root.query == "" ? "Tap + to write your first one." : "Try a different word.";
+                        color: Palette.ink-3;
+                        font-size: 13px;
+                        horizontal-alignment: center;
+                    }
+                }
+            }
+
+            if root.notes.length > 0 : note-list := ListView {
+                y: 166px;
+                width: parent.width;
+                height: parent.height - 166px;
+
+                for entry in root.notes : Rectangle {
+                    width: note-list.width;
+                    height: 108px;
+                    background: transparent;
+
+                    NoteCard {
+                        x: 22px;
+                        y: 6px;
+                        width: parent.width - 44px;
+                        height: 96px;
+                        item: entry;
+                        opened => { root.open-note(entry.id); }
+                    }
+                }
+            }
+        }
+    }
+
+    // -------------------------------------------------------------- editor
+    if root.screen == 1 : Rectangle {
+        width: parent.width;
+        height: parent.height;
+        background: Palette.bg;
+
+        editor-content := Rectangle {
+            x: root.safe-area-insets.left;
+            y: root.safe-area-insets.top;
+            width: parent.width - root.safe-area-insets.left - root.safe-area-insets.right;
+            height: parent.height - root.safe-area-insets.top - root.safe-area-insets.bottom - root.virtual-keyboard-size.height;
+            background: transparent;
+
+            Rectangle {
+                x: 14px;
+                y: 12px;
+                width: 44px;
+                height: 44px;
+                border-radius: 22px;
+                background: transparent;
+
+                Path {
+                    x: 19px;
+                    y: 16px;
+                    width: 8px;
+                    height: 12px;
+                    commands: "M 6 1 L 1 6 L 6 11";
+                    stroke: Palette.ink;
+                    stroke-width: 2px;
+                    fill: transparent;
+                }
+
+                states [
+                    pressed when back-touch.pressed: {
+                        background: Palette.surface;
+                    }
+                ]
+                animate background { duration: 120ms; }
+
+                back-touch := TouchArea {
+                    clicked => { root.go-back(); }
+                }
+            }
+
+            Rectangle {
+                x: parent.width - 104px;
+                y: 17px;
+                width: 88px;
+                height: 34px;
+                border-radius: 17px;
+                background: transparent;
+                border-width: 1px;
+                border-color: Palette.line;
+
+                Text {
+                    text: "Delete";
+                    color: Palette.danger;
+                    font-size: 13px;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+
+                states [
+                    pressed when del-touch.pressed: {
+                        background: Palette.surface;
+                    }
+                ]
+                animate background { duration: 120ms; }
+
+                del-touch := TouchArea {
+                    clicked => { root.delete-note(); }
+                }
+            }
+
+            Rectangle {
+                x: 24px;
+                y: 80px;
+                width: parent.width - 48px;
+                height: 40px;
+                background: transparent;
+
+                Text {
+                    x: 0;
+                    y: 0;
+                    width: parent.width;
+                    horizontal-alignment: left;
+                    text: "Title";
+                    color: Palette.ink-3;
+                    font-size: 26px;
+                    font-weight: 700;
+                    visible: title-input.text == "";
+                }
+
+                title-input := TextInput {
+                    width: parent.width;
+                    height: 38px;
+                    color: Palette.ink;
+                    font-size: 26px;
+                    font-weight: 700;
+                    single-line: true;
+                    text <=> root.draft-title;
+                    edited => { root.edited(); }
+                }
+            }
+
+            Rectangle {
+                x: 24px;
+                y: 136px;
+                width: parent.width - 48px;
+                height: 1px;
+                background: Palette.line;
+            }
+
+            Flickable {
+                x: 0;
+                y: 152px;
+                width: parent.width;
+                height: parent.height - 200px;
+                content-width: self.width;
+                content-height: body-input.height + 40px;
+
+                Text {
+                    x: 24px;
+                    y: 20px;
+                    horizontal-alignment: left;
+                    text: "Start writing…";
+                    color: Palette.ink-3;
+                    font-size: 16px;
+                    visible: body-input.text == "";
+                }
+
+                body-input := TextInput {
+                    x: 24px;
+                    y: 20px;
+                    width: parent.width - 48px;
+                    height: max(self.preferred-height, parent.height - 40px);
+                    color: Palette.ink;
+                    font-size: 16px;
+                    wrap: word-wrap;
+                    text <=> root.draft-body;
+                    edited => { root.edited(); }
+                }
+            }
+
+            Text {
+                x: 24px;
+                y: parent.height - 44px;
+                height: 44px;
+                vertical-alignment: center;
+                text: root.status;
+                color: Palette.ink-3;
+                font-size: 11.5px;
+            }
+        }
+    }
+}

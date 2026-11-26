@@ -1,0 +1,2 @@
+-keep class com.vbs.knotepad.MainActivity { *; }
+-keepclassmembers class * extends android.app.Activity { public void *(android.view.View); }
